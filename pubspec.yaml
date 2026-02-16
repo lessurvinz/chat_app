@@ -10,7 +10,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-
+  firebase_messaging: ^16.1.1
+  flutter_local_notifications: ^16.3.2
   cupertino_icons: ^1.0.8
   firebase_core: ^4.2.1
   flutter_native_splash: ^2.4.7
@@ -19,6 +20,7 @@ dependencies:
   provider: ^6.1.5+1
   intl: ^0.20.2
   google_fonts: ^6.3.2
+  
 
   # 📸 Added for Messenger Features:
   image_picker: ^1.1.2       # To pick images and videos from gallery/camera
@@ -32,8 +34,8 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-  assets:
-    - assets/images/
+  # assets:
+  #   - assets/images/
 
 flutter_native_splash:
   color: "#FFFFFF" 

@@ -2,12 +2,16 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:chat_app/screens/chat_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:chat_app/screens/profile_screen.dart';
+import 'package:chat_app/services/notification_service.dart'; // Added import
 
 class AdminChatListScreen extends StatelessWidget {
   const AdminChatListScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    // Registers admin device for notifications without changing UI
+    NotificationService.saveTokenToFirestore(); 
+
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(

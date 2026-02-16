@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:chat_app/screens/profile_screen.dart';
 import 'package:chat_app/screens/chat_screen.dart';
+import 'package:chat_app/services/notification_service.dart'; // Added import
 
 class UserChatScreen extends StatelessWidget {
   final User? currentUser;
@@ -16,6 +17,9 @@ class UserChatScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Registers user device for notifications without changing UI
+    NotificationService.saveTokenToFirestore();
+
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
@@ -36,7 +40,6 @@ class UserChatScreen extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            // 🌸 NEW PINK GRADIENT
             colors: [Color(0xFFFF85A1), Color(0xFF750D37)], 
           ),
         ),
@@ -44,7 +47,6 @@ class UserChatScreen extends StatelessWidget {
           child: Column(
             children: [
               const SizedBox(height: 20),
-              // User Details at Top
               Text(
                 currentUser?.email ?? 'User',
                 style: const TextStyle(
@@ -58,20 +60,18 @@ class UserChatScreen extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.white24, // Slightly more visible on pink
+                  color: Colors.white24,
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
                   userRole.toUpperCase(),
                   style: const TextStyle(
-                    color: Colors.amberAccent, // Yellow looks better with pink
+                    color: Colors.amberAccent,
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
-              
-              // Centered Icon Section
               Expanded(
                 child: Center(
                   child: StreamBuilder<DocumentSnapshot>(
@@ -107,7 +107,6 @@ class UserChatScreen extends StatelessWidget {
                                 alignment: Alignment.center,
                                 clipBehavior: Clip.none,
                                 children: [
-                                  // Outer Ring
                                   Container(
                                     width: 120,
                                     height: 120,
@@ -116,7 +115,6 @@ class UserChatScreen extends StatelessWidget {
                                       border: Border.all(color: Colors.white38, width: 2),
                                     ),
                                   ),
-                                  // White Bubble
                                   Container(
                                     width: 100,
                                     height: 100,
@@ -132,12 +130,11 @@ class UserChatScreen extends StatelessWidget {
                                       ],
                                     ),
                                     child: const Icon(
-                                      Icons.favorite_rounded, // Swapped to heart for pink theme
+                                      Icons.favorite_rounded,
                                       size: 40,
-                                      color: Color(0xFFFF4D6D), // Soft pink-red
+                                      color: Color(0xFFFF4D6D),
                                     ),
                                   ),
-                                  // Badge
                                   if (unreadCount > 0)
                                     Positioned(
                                       top: 0,
@@ -145,7 +142,7 @@ class UserChatScreen extends StatelessWidget {
                                       child: Container(
                                         padding: const EdgeInsets.all(8),
                                         decoration: const BoxDecoration(
-                                          color: Colors.amberAccent, // Amber badge pops on pink
+                                          color: Colors.amberAccent,
                                           shape: BoxShape.circle,
                                         ),
                                         constraints: const BoxConstraints(
@@ -156,7 +153,7 @@ class UserChatScreen extends StatelessWidget {
                                           child: Text(
                                             '$unreadCount',
                                             style: const TextStyle(
-                                              color: Color(0xFF750D37), // Darker text for contrast
+                                              color: Color(0xFF750D37),
                                               fontWeight: FontWeight.bold,
                                             ),
                                           ),
@@ -174,9 +171,6 @@ class UserChatScreen extends StatelessWidget {
                               color: Colors.white70, 
                               fontSize: 16,
                               fontStyle: FontStyle.italic,
-                              shadows: [
-                                Shadow(blurRadius: 10, color: Colors.black26, offset: Offset(0, 2))
-                              ],
                             ),
                           ),
                         ],

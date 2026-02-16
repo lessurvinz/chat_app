@@ -4,11 +4,18 @@ import 'firebase_options.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:chat_app/screens/auth_wrapper.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:firebase_messaging/firebase_messaging.dart'; // Added
+import 'package:chat_app/services/notification_service.dart'; // Added
 
 const Color kRichBlack = Color(0xFF1D1F24);
 const Color kBrown = Color(0xFF8B5E3C);
 const Color kLightBrown = Color(0xFFD2B48C);
 const Color kOffWhite = Color(0xFFF8F4F0);
+
+// Background Message Handler
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+}
 
 void main() async {
   WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
@@ -18,9 +25,11 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
+  // Initialize Notifications
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+  await NotificationService.initialize();
 
-  runApp(MyApp());
-
+  runApp(const MyApp());
   FlutterNativeSplash.remove();
 }
 
@@ -32,66 +41,15 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'chat_app',
-
       theme: ThemeData(
         useMaterial3: true,
-
         colorScheme: ColorScheme.fromSeed(
           seedColor: kBrown,
-          brightness: Brightness.light,
           primary: kBrown,
-          onPrimary: Colors.white,
-          secondary: kLightBrown,
           background: kOffWhite,
         ),
-
-        scaffoldBackgroundColor: kOffWhite,
-
-        // ✅ THE FIX: Use Noto Sans for ALL TEXT (supports ₱ everywhere)
-        textTheme: GoogleFonts.notoSansTextTheme(
-          Theme.of(context).textTheme,
-        ),
-
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: kBrown,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        ),
-
-        inputDecorationTheme: InputDecorationTheme(
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Colors.grey[400]!),
-          ),
-          labelStyle: TextStyle(color: kBrown.withOpacity(0.8)),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: kBrown, width: 2.0),
-          ),
-        ),
-
-        cardTheme: CardThemeData(
-          elevation: 1,
-          color: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          clipBehavior: Clip.antiAlias,
-        ),
-
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.white,
-          foregroundColor: kRichBlack,
-          elevation: 0,
-          centerTitle: true,
-        ),
+        textTheme: GoogleFonts.notoSansTextTheme(Theme.of(context).textTheme),
       ),
-
       home: const AuthWrapper(),
     );
   }
