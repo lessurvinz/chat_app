@@ -2,16 +2,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:chat_app/screens/chat_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:chat_app/screens/profile_screen.dart';
-import 'package:chat_app/services/notification_service.dart'; // Added import
 
 class AdminChatListScreen extends StatelessWidget {
   const AdminChatListScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // Registers admin device for notifications without changing UI
-    NotificationService.saveTokenToFirestore(); 
-
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
@@ -90,19 +86,29 @@ class AdminChatListScreen extends StatelessWidget {
                         final String userEmail = chatData['userEmail'] ?? 'User: $userId';
                         final String lastMsg = chatData['lastMessage'] ?? 'No messages yet';
                         final int unreadCount = chatData['unreadByAdminCount'] ?? 0;
+                        
+                        // LOGIC: Check if there are unread messages
+                        final bool hasUnread = unreadCount > 0;
 
                         return Card(
-                          color: Colors.white.withOpacity(0.1),
-                          elevation: 0,
+                          // HIGHLIGHT: Change color and elevation if unread
+                          color: hasUnread 
+                              ? Colors.white.withOpacity(0.2) 
+                              : Colors.white.withOpacity(0.1),
+                          elevation: hasUnread ? 4 : 0,
                           margin: const EdgeInsets.only(bottom: 12),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(15),
-                            side: BorderSide(color: Colors.white.withOpacity(0.1)),
+                            // HIGHLIGHT: Add a subtle border for unread chats
+                            side: BorderSide(
+                              color: hasUnread ? Colors.blueAccent : Colors.white.withOpacity(0.1),
+                              width: hasUnread ? 1.5 : 1,
+                            ),
                           ),
                           child: ListTile(
                             contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
                             leading: CircleAvatar(
-                              backgroundColor: Colors.white24,
+                              backgroundColor: hasUnread ? Colors.blueAccent : Colors.white24,
                               child: Text(
                                 userEmail[0].toUpperCase(),
                                 style: const TextStyle(color: Colors.white),
@@ -110,44 +116,64 @@ class AdminChatListScreen extends StatelessWidget {
                             ),
                             title: Text(
                               userEmail,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: Colors.white,
-                                fontWeight: FontWeight.bold,
+                                // HIGHLIGHT: Use Black weight for unread titles
+                                fontWeight: hasUnread ? FontWeight.bold : FontWeight.normal,
                               ),
                             ),
                             subtitle: Text(
                               lastMsg,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(color: Colors.white70),
+                              style: TextStyle(
+                                // HIGHLIGHT: Subtitle is brighter if unread
+                                color: hasUnread ? Colors.white : Colors.white70,
+                                fontWeight: hasUnread ? FontWeight.w600 : FontWeight.normal,
+                              ),
                             ),
-                            trailing: unreadCount > 0
-                                ? Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: const BoxDecoration(
-                                      color: Colors.redAccent,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Text(
-                                      '$unreadCount',
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
+                            trailing: hasUnread
+                                ? Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(8),
+                                        decoration: const BoxDecoration(
+                                          color: Colors.blueAccent,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Text(
+                                          '$unreadCount',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
                                       ),
-                                    ),
+                                    ],
                                   )
                                 : const Icon(Icons.arrow_forward_ios,
                                     color: Colors.white38, size: 16),
-                            onTap: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (context) => ChatScreen(
-                                    chatRoomId: userId,
-                                    userName: userEmail,
+                            onTap: () async {
+                              // LOGIC: Reset unread count when admin opens the chat
+                              if (hasUnread) {
+                                await FirebaseFirestore.instance
+                                    .collection('chats')
+                                    .doc(userId)
+                                    .update({'unreadByAdminCount': 0});
+                              }
+
+                              if (context.mounted) {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (context) => ChatScreen(
+                                      chatRoomId: userId,
+                                      userName: userEmail,
+                                    ),
                                   ),
-                                ),
-                              );
+                                );
+                              }
                             },
                           ),
                         );

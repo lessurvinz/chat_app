@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:chat_app/screens/profile_screen.dart';
 import 'package:chat_app/screens/chat_screen.dart';
-import 'package:chat_app/services/notification_service.dart'; // Added import
 
 class UserChatScreen extends StatelessWidget {
   final User? currentUser;
@@ -17,9 +16,6 @@ class UserChatScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Registers user device for notifications without changing UI
-    NotificationService.saveTokenToFirestore();
-
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
@@ -72,6 +68,7 @@ class UserChatScreen extends StatelessWidget {
                   ),
                 ),
               ),
+              
               Expanded(
                 child: Center(
                   child: StreamBuilder<DocumentSnapshot>(
@@ -86,35 +83,64 @@ class UserChatScreen extends StatelessWidget {
                         unreadCount = data?['unreadByUserCount'] ?? 0;
                       }
 
+                      // LOGIC: Check if we should highlight
+                      final bool isHighlighted = unreadCount > 0;
+
                       return Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           MouseRegion(
                             cursor: SystemMouseCursors.click,
                             child: GestureDetector(
-                              onTap: () {
+                              onTap: () async {
                                 if (currentUser != null) {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (context) => ChatScreen(
-                                        chatRoomId: currentUser!.uid,
+                                  if (unreadCount > 0) {
+                                    await FirebaseFirestore.instance
+                                        .collection('chats')
+                                        .doc(currentUser!.uid)
+                                        .update({'unreadByUserCount': 0});
+                                  }
+
+                                  if (context.mounted) {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (context) => ChatScreen(
+                                          chatRoomId: currentUser!.uid,
+                                          userName: "Admin",
+                                        ),
                                       ),
-                                    ),
-                                  );
+                                    );
+                                  }
                                 }
                               },
                               child: Stack(
                                 alignment: Alignment.center,
                                 clipBehavior: Clip.none,
                                 children: [
-                                  Container(
+                                  // --- HIGHLIGHTED OUTER RING ---
+                                  AnimatedContainer(
+                                    duration: const Duration(milliseconds: 300),
                                     width: 120,
                                     height: 120,
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
-                                      border: Border.all(color: Colors.white38, width: 2),
+                                      border: Border.all(
+                                        // Change color to Amber when there's a message
+                                        color: isHighlighted ? Colors.amberAccent : Colors.white38, 
+                                        width: isHighlighted ? 4 : 2,
+                                      ),
+                                      // Add a glow effect when highlighted
+                                      boxShadow: isHighlighted ? [
+                                        const BoxShadow(
+                                          color: Colors.amberAccent,
+                                          blurRadius: 15,
+                                          spreadRadius: 2,
+                                        )
+                                      ] : [],
                                     ),
                                   ),
+                                  
+                                  // White Bubble
                                   Container(
                                     width: 100,
                                     height: 100,
@@ -129,21 +155,28 @@ class UserChatScreen extends StatelessWidget {
                                         )
                                       ],
                                     ),
-                                    child: const Icon(
+                                    child: Icon(
                                       Icons.favorite_rounded,
                                       size: 40,
-                                      color: Color(0xFFFF4D6D),
+                                      // Icon also changes color to match highlight
+                                      color: isHighlighted ? const Color(0xFF750D37) : const Color(0xFFFF4D6D),
                                     ),
                                   ),
+
+                                  // --- BADGE POSITIONED ON ICON ---
                                   if (unreadCount > 0)
                                     Positioned(
-                                      top: 0,
-                                      right: 0,
+                                      top: -5, // Slightly above the ring
+                                      right: -5, // Slightly to the side
                                       child: Container(
                                         padding: const EdgeInsets.all(8),
-                                        decoration: const BoxDecoration(
+                                        decoration: BoxDecoration(
                                           color: Colors.amberAccent,
                                           shape: BoxShape.circle,
+                                          border: Border.all(color: const Color(0xFF750D37), width: 2),
+                                          boxShadow: const [
+                                            BoxShadow(color: Colors.black45, blurRadius: 4)
+                                          ]
                                         ),
                                         constraints: const BoxConstraints(
                                           minWidth: 35, 
@@ -155,6 +188,7 @@ class UserChatScreen extends StatelessWidget {
                                             style: const TextStyle(
                                               color: Color(0xFF750D37),
                                               fontWeight: FontWeight.bold,
+                                              fontSize: 14,
                                             ),
                                           ),
                                         ),
@@ -165,12 +199,16 @@ class UserChatScreen extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 24),
-                          const Text(
-                            'Tap to Message Your Handsome Boyfriend',
+                          Text(
+                            isHighlighted ? 'New Message from Boyfriend!' : 'Tap to Message Your Handsome Boyfriend',
                             style: TextStyle(
-                              color: Colors.white70, 
+                              color: isHighlighted ? Colors.amberAccent : Colors.white70, 
                               fontSize: 16,
+                              fontWeight: isHighlighted ? FontWeight.bold : FontWeight.normal,
                               fontStyle: FontStyle.italic,
+                              shadows: const [
+                                Shadow(blurRadius: 10, color: Colors.black26, offset: Offset(0, 2))
+                              ],
                             ),
                           ),
                         ],
