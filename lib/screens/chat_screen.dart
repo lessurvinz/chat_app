@@ -24,7 +24,6 @@ class _ChatScreenState extends State<ChatScreen> {
   final ScrollController _scrollController = ScrollController();
   final ImagePicker _picker = ImagePicker();
 
-  // Settings loaded from Firestore
   String? _backgroundUrl;
   List<Color> _currentGradient = [Colors.white, Colors.grey[200]!];
   bool _isDarkTheme = false;
@@ -33,10 +32,8 @@ class _ChatScreenState extends State<ChatScreen> {
   void initState() {
     super.initState();
     _markMessagesAsRead();
-    _listenToChatSettings(); // This makes the theme permanent
+    _listenToChatSettings();
   }
-
-  // --- PERMANENT THEME LOGIC ---
 
   void _listenToChatSettings() {
     _firestore.collection('chats').doc(widget.chatRoomId).snapshots().listen((doc) {
@@ -60,23 +57,20 @@ class _ChatScreenState extends State<ChatScreen> {
     
     if (colors != null) {
       updateData['themeColors'] = colors.map((c) => c.value).toList();
-      updateData['themeImageUrl'] = null; // Clear image if color is picked
+      updateData['themeImageUrl'] = null;
     }
     if (imageUrl != null) {
       updateData['themeImageUrl'] = imageUrl;
-      updateData['themeColors'] = null; // Clear colors if image is picked
+      updateData['themeColors'] = null;
     }
 
     await _firestore.collection('chats').doc(widget.chatRoomId).set(updateData, SetOptions(merge: true));
   }
 
-  // --- MEDIA & BACKGROUND PICKING ---
-
   Future<void> _pickChatBackground() async {
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
     if (image == null) return;
 
-    // Upload background to Storage so it's accessible on all devices
     String fileName = 'background_${widget.chatRoomId}.jpg';
     Reference ref = _storage.ref().child('themes/$fileName');
     await ref.putFile(File(image.path));
@@ -98,18 +92,30 @@ class _ChatScreenState extends State<ChatScreen> {
     UploadTask uploadTask = ref.putFile(File(file.path));
     TaskSnapshot snap = await uploadTask;
     String url = await snap.ref.getDownloadURL();
+    String displayMsg = type == 'image' ? '📷 Photo' : '🎥 Video';
 
     await _firestore.collection('chats').doc(widget.chatRoomId).collection('messages').add({
-      'text': type == 'image' ? '📷 Photo' : '🎥 Video',
+      'text': displayMsg,
       'mediaUrl': url,
       'mediaType': type,
       'createdAt': FieldValue.serverTimestamp(),
       'senderId': _auth.currentUser!.uid,
     });
+
+    // --- LOGIC FIX START ---
+    // If the person sending is NOT the chatRoomId (User), then the Admin is sending.
+    bool isAdmin = _auth.currentUser!.uid != widget.chatRoomId;
+    String fieldToIncrement = isAdmin ? 'unreadByUserCount' : 'unreadByAdminCount';
+    // --- LOGIC FIX END ---
+
+    await _firestore.collection('chats').doc(widget.chatRoomId).set({
+      'lastMessage': displayMsg,
+      'lastMessageAt': FieldValue.serverTimestamp(),
+      fieldToIncrement: FieldValue.increment(1), // Fixed this
+    }, SetOptions(merge: true));
+
     _scrollToBottom();
   }
-
-  // --- MESSAGE LOGIC ---
 
   Future<void> _sendMessage() async {
     if (_messageController.text.trim().isEmpty) return;
@@ -122,16 +128,20 @@ class _ChatScreenState extends State<ChatScreen> {
       'senderId': _auth.currentUser!.uid,
     });
     
-    // Update last message in parent doc
+    // --- LOGIC FIX START ---
+    bool isAdmin = _auth.currentUser!.uid != widget.chatRoomId;
+    String fieldToIncrement = isAdmin ? 'unreadByUserCount' : 'unreadByAdminCount';
+    // --- LOGIC FIX END ---
+
     await _firestore.collection('chats').doc(widget.chatRoomId).set({
       'lastMessage': text,
       'lastMessageAt': FieldValue.serverTimestamp(),
+      'userEmail': _auth.currentUser!.email,
+      fieldToIncrement: FieldValue.increment(1), // Fixed this
     }, SetOptions(merge: true));
 
     _scrollToBottom();
   }
-
-  // --- UI COMPONENTS ---
 
   void _showThemePicker() {
     showModalBottomSheet(
@@ -147,9 +157,9 @@ class _ChatScreenState extends State<ChatScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                _themeCircle([const Color(0xFFFF85A1), const Color(0xFF750D37)], true), // Pink
-                _themeCircle([Colors.blueAccent, Colors.purpleAccent], true), // Blue
-                _themeCircle([Colors.white, Colors.grey[300]!], false), // Light
+                _themeCircle([const Color(0xFFFF85A1), const Color(0xFF750D37)], true),
+                _themeCircle([Colors.blueAccent, Colors.purpleAccent], true),
+                _themeCircle([Colors.white, Colors.grey[300]!], false),
               ],
             ),
             const Spacer(),
@@ -209,7 +219,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       final data = docs[index].data() as Map<String, dynamic>;
                       return ChatBubble(
                         message: data['text'] ?? '',
-                        mediaUrl: data['mediaUrl'], // Pass this to your ChatBubble widget!
+                        mediaUrl: data['mediaUrl'],
                         isCurrentUser: data['senderId'] == _auth.currentUser!.uid,
                         timestamp: (data['createdAt'] as Timestamp?)?.toDate(),
                       );
@@ -237,7 +247,13 @@ class _ChatScreenState extends State<ChatScreen> {
               child: TextField(
                 controller: _messageController,
                 style: TextStyle(color: _isDarkTheme ? Colors.white : Colors.black),
-                decoration: InputDecoration(hintText: "Message...", hintStyle: const TextStyle(color: Colors.grey), border: InputBorder.none),
+                textInputAction: TextInputAction.send, 
+                onSubmitted: (value) => _sendMessage(), 
+                decoration: const InputDecoration(
+                  hintText: "Message...", 
+                  hintStyle: TextStyle(color: Colors.grey), 
+                  border: InputBorder.none
+                ),
               ),
             ),
             IconButton(icon: const Icon(Icons.send, color: Colors.blue), onPressed: _sendMessage),
@@ -247,7 +263,6 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  // --- HELPER METHODS ---
   void _scrollToBottom() {
     if (_scrollController.hasClients) {
       _scrollController.animateTo(_scrollController.position.maxScrollExtent, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
